@@ -1,0 +1,19 @@
+name: donerf
+channels:
+  - pytorch
+  - defaults
+dependencies:
+  - python=3.8.8
+  - numpy
+  - pandas
+  - matplotlib
+  - tqdm
+  - pip
+  - pip:
+    - opencv-python
+    - imageio
+    - imageio-ffmpeg
+    - configargparse
+    - pillow
+    - pyrtools
+    - ptflops
