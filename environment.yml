@@ -17,3 +17,7 @@ dependencies:
     - pillow
     - pyrtools
     - ptflops
+    - pyquaternion
+    - trimesh
+    - open3d
+
