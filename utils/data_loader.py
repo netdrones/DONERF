@@ -8,58 +8,108 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 
 TRAIN = 0.95
-VAL_SIZE = 10
 
-def load_cameras(jsonfile):
+def load_json(jsonfile):
     with open(jsonfile) as f:
         data = json.load(f)
 
-    # Generate train/test/val splits
-    keys = list(data.keys())
-    train, test = train_test_split(keys, test_size=(1-TRAIN))
-    val = np.random.choice(test, 10, replace=False)
+    return data
 
-    return data, train, test, val
+class Loader:
 
-def write_txt(keys, data, out_dir):
-    rgb_dir = os.path.join(out_dir, 'rgb')
-    pose_dir = os.path.join(out_dir, 'pose')
-    parent_dir = os.path.join(out_dir, '../dense')
-    intrinsic_dir = os.path.join(out_dir, 'intrinsics')
+    def  __init__(self, workspace_dir):
 
-    if os.path.exists(rgb_dir):
-        shutil.rmtree(rgb_dir)
-    os.mkdir(rgb_dir)
-    if os.path.exists(pose_dir):
-        shutil.rmtree(pose_dir)
-    os.mkdir(pose_dir)
-    if os.path.exists(intrinsic_dir):
-        shutil.rmtree(intrinsic_dir)
-    os.mkdir(intrinsic_dir)
+        self.workspace_dir = workspace_dir
+        self.dense_dir = os.path.join(self.workspace_dir, 'dense')
+        self.train_dir = os.path.join(self.workspace_dir, 'train')
+        self.test_dir  = os.path.join(self.workspace_dir, 'test')
+        self.val_dir = os.path.join(self.workspace_dir, 'val')
 
-    for key in keys:
-        fname = key.split('.')[0] + '.txt'
-        intrinsics = np.array(data[key]['K'])
-        pose = np.array(data[key]['W2C'])
-        np.savetxt(os.path.join(intrinsic_dir, fname), intrinsics)
-        np.savetxt(os.path.join(pose_dir, fname), pose)
-        os.symlink(os.path.abspath(os.path.join(parent_dir, f'images/{key}')), os.path.join(rgb_dir, key))
+        if os.path.exists(self.train_dir):
+            shutil.rmtree(self.train_dir)
+        if os.path.exists(self.test_dir):
+            shutil.rmtree(self.test_dir)
+        if os.path.exists(self.val_dir):
+            shutil.rmtree(self.val_dir)
+
+        os.mkdir(self.train_dir)
+        os.mkdir(self.test_dir)
+        os.mkdir(self.val_dir)
+
+    def load(self):
+        cams = load_json(os.path.join(workspace_dir, 'posed_images/cameras.json'))
+        normalized_cams = load_json(os.path.join(workspace_dir, 'posed_images/cameras_normalized.json'))
+        self.write_data(normalized_cams)
+        self.write_transforms(normalized_cams)
+
+    def read_write_intrinsics(self, cams):
+        keys = list(cams.keys())
+        K = cams[keys[0]]['K']
+        K = K.reshape(4, 4)
+
+    def read_array(self, path):
+        with open(path, "rb") as fid:
+            width, height, channels = np.genfromtxt(fid, delimiter="&", max_rows=1,
+                                                    usecols=(0, 1, 2), dtype=int)
+            fid.seek(0)
+            num_delimiter = 0
+            byte = fid.read(1)
+            while True:
+                if byte == b"&":
+                    num_delimiter += 1
+                    if num_delimiter >= 3:
+                        break
+                byte = fid.read(1)
+            array = np.fromfile(fid, np.float32)
+        array = array.reshape((width, height, channels), order="F")
+        return np.transpose(array, (1, 0, 2)).squeeze()
+
+    def write_data(self, data):
+        frames = data['frames']
+
+        for frame in frames:
+            key = frame['file_path'].split('/')[-1]
+            depth_map = self.read_array(os.path.join(self.dense_dir, f'stereo/depth_maps/{key}.jpg.geometric.bin'))
+
+            if 'train' in frame['file_path']:
+                np.savez(os.path.join(self.train_dir, key.split('.')[0] + '_depth'), depth_map)
+                os.symlink(os.path.abspath(os.path.join(self.dense_dir, f'images/{key}')), os.path.join(self.train_dir, key))
+            elif 'test' in frame['file_path']:
+                np.savez(os.path.join(self.test_dir, key.split('.')[0] + '_depth'), depth_map)
+                os.symlink(os.path.abspath(os.path.join(self.dense_dir, f'images/{key}')), os.path.join(self.test_dir, key))
+            elif 'val' in frame['file_path']:
+                np.savez(os.path.join(self.val_dir, key.split('.')[0] + '_depth'), depth_map)
+                os.symlink(os.path.abspath(os.path.join(self.dense_dir, f'images/{key}')), os.path.join(self.val_dir, key))
+
+    def write_transforms(self, data):
+        out_train_dict_file = os.path.join(self.workspace_dir, 'transforms_train.json')
+        out_test_dict_file = os.path.join(self.workspace_dir, 'transforms_test.json')
+        out_val_dict_file = os.path.join(self.workspace_dir, 'transforms_val.json')
+
+        frames = data['frames']
+        train, test, val = [], [], []
+        for frame in frames:
+            if 'train' in frame['file_path']:
+                train.append(frame)
+            elif 'test' in frame['file_path']:
+                test.append(frame)
+            else:
+                val.append(frame)
+
+        with open(out_train_dict_file, 'w') as fp:
+            out_train_dict = {'frames': train}
+            json.dump(out_train_dict, fp, indent=2, sort_keys=True)
+
+        with open(out_test_dict_file, 'w') as fp:
+            out_test_dict = {'frames': test}
+            json.dump(out_test_dict, fp, indent=2, sort_keys=True)
+
+        with open(out_val_dict_file, 'w') as fp:
+            out_val_dict = {'frames': val}
+            json.dump(out_val_dict, fp, indent=2, sort_keys=True)
 
 if __name__ == '__main__':
 
     workspace_dir = sys.argv[1]
-    train_dir = os.path.join(workspace_dir, 'train')
-    test_dir = os.path.join(workspace_dir, 'test')
-    val_dir = os.path.join(workspace_dir, 'validation')
-
-    dir_list = [train_dir, test_dir, val_dir]
-    for d in dir_list:
-        if os.path.exists(d):
-            shutil.rmtree(d)
-        os.mkdir(d)
-
-    data, train, test, val = load_cameras(os.path.join(workspace_dir, 'posed_images/cameras_normalized.json'))
-
-    write_txt(train, data, train_dir)
-    write_txt(test, data, test_dir)
-    write_txt(val, data, val_dir)
+    loader = Loader(workspace_dir)
+    loader.load()

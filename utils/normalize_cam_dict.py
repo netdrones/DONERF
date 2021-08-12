@@ -2,7 +2,9 @@ import numpy as np
 import json
 import copy
 import open3d as o3d
+from sklearn.model_selection import train_test_split
 
+TRAIN = 0.85
 
 def get_tf_cams(cam_dict, target_radius=1.):
     cam_centers = []
@@ -54,16 +56,32 @@ def normalize_cam_dict(in_cam_dict_file, out_cam_dict_file, target_radius=1., in
         C2W[:3, 3] = cam_center
         return np.linalg.inv(C2W)
 
-    out_cam_dict = copy.deepcopy(in_cam_dict)
-    for img_name in out_cam_dict:
-        W2C = np.array(out_cam_dict[img_name]['W2C']).reshape((4, 4))
+    train, test = train_test_split(list(in_cam_dict.keys()), test_size=(1-TRAIN))
+    test, val = train_test_split(test, test_size=(0.25 * (1-TRAIN)))
+
+    frames = []
+    for img_name in in_cam_dict:
+        img_dict = {}
+        W2C = np.array(in_cam_dict[img_name]['W2C']).reshape((4, 4))
         W2C = transform_pose(W2C, translate, scale)
         assert(np.isclose(np.linalg.det(W2C[:3, :3]), 1.))
-        out_cam_dict[img_name]['W2C'] = list(W2C.flatten())
+        fname = img_name.split('.')[0]
+
+        if img_name in train:
+            img_dict['file_path'] = f'./train/{fname}'
+        elif img_name in test:
+            img_dict['file_path'] = f'./test/{fname}'
+        else:
+            img_dict['file_path'] = f'./val/{fname}'
+
+        img_dict['rotation'] = 0
+        img_dict['transform_matrix'] = W2C.tolist()
+
+        frames.append(img_dict)
 
     with open(out_cam_dict_file, 'w') as fp:
+        out_cam_dict = {'frames': frames}
         json.dump(out_cam_dict, fp, indent=2, sort_keys=True)
-
 
 if __name__ == '__main__':
     in_cam_dict_file = ''
