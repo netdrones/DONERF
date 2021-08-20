@@ -83,7 +83,7 @@ fi
 
 python utils/generate_poses.py $WORKSPACE_DIR
 python utils/data_loader.py $WORKSPACE_DIR
-python utils/jpt_to_png.py $WORKSPACE_DR/dense/images
+python utils/jpg_to_png.py $WORKSPACE_DIR/dense/images
 rm -f $WORKSPACE_DIR/dense/images/*.jpg
 python utils/symlink.py $WORKSPACE_DIR/dense/images $WORKSPACE_DIR
 gsutil cp gs://lucas.netdron.es/dataset_info.json $WORKSPACE_DIR

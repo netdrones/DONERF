@@ -69,7 +69,7 @@ class Loader:
 
         for frame in frames:
             key = frame['file_path'].split('/')[-1]
-            depth_map = self.read_array(os.path.join(self.dense_dir, f'stereo/depth_maps/{key}.jpg.geometric.bin'))
+            depth_map = self.read_array(os.path.join(self.dense_dir, f'stereo/depth_maps/{key}.jpeg.geometric.bin'))
 
             if 'train' in frame['file_path']:
                 np.savez(os.path.join(self.train_dir, key.split('.')[0] + '_depth'), depth_map)

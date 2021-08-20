@@ -47,6 +47,10 @@ def validate_batch(train_config: TrainConfig, epoch, train_loss, model_idx=-1):
         y_batch = sample_data_wrapper.get_train_target(model_idx)
         y_batch = y_batch.reshape(c_file.batchImages * c_file.samples, -1)
 
+        print(x_batch)
+        print(y_batch)
+        print(model_idx)
+
         loss_batch = train_config.losses[model_idx](out, y_batch, inference_dict=inference_dict)
         losses.append(loss_batch)
         diff = abs(out - y_batch)

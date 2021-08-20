@@ -10,4 +10,8 @@ install:
 
 house:
 	if [ ! -d house ]; then gsutil -m cp -r gs://lucas.netdron.es/house .; fi
-	sh +x utils/train_house.sh
+	sh +x bin/train.sh -i house
+
+coffee:
+	if [ ! -d coffee ]; then gsutil -m cp -r gs://lucas.netdron.es/coffee .; fi
+	sh +x bin/train.sh -i coffee
