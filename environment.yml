@@ -20,4 +20,4 @@ dependencies:
     - pyquaternion
     - trimesh
     - open3d
-
+    - transforms3d
